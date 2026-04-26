@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #FBFBF2;
+  --foreground: #2D3E37;
+  --primary: #445E54;
+  --secondary: #93A89F;
+  --accent-pink: #FDEAE4;
+  --soft-green: #EFF1EA;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent-pink: var(--accent-pink);
+  --color-soft-green: var(--soft-green);
+  --font-outfit: 'Outfit', sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Outfit', sans-serif;
+}
+
