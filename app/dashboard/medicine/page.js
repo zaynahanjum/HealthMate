@@ -1,85 +1,94 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const MedicinePage = () => {
-  const [medicines, setMedicines] = useState([
-    {
-      id: 1,
-      time: '08:00 AM',
-      name: 'Multivitamin',
-      instruction: '1 Capsule • After breakfast',
-      status: 'Taken',
-      taken: true,
-      position: 'left',
-      color: 'bg-[#445E54]',
-      badgeColor: 'bg-[#D6E6E1] text-[#445E54]',
-      icon: 'check'
-    },
-    {
-      id: 2,
-      time: '10:30 AM',
-      name: 'Omega-3 Fish Oil',
-      instruction: '2 Softgels • With water',
-      status: 'Upcoming',
-      taken: false,
-      position: 'right',
-      color: 'bg-[#93A89F]',
-      badgeColor: 'bg-[#FDEAE4] text-[#E57A7A]',
-      icon: 'clock'
-    },
-    {
-      id: 3,
-      time: '01:00 PM',
-      name: 'Vitamin D3',
-      instruction: '1 Tablet • During lunch',
-      status: 'Missed',
-      taken: false,
-      position: 'left',
-      color: 'bg-[#E57A7A]',
-      badgeColor: 'bg-[#FDEAE4] text-[#E57A7A]',
-      icon: 'x'
-    },
-    {
-      id: 4,
-      time: '09:00 PM',
-      name: 'Magnesium',
-      instruction: 'Supports sleep quality',
-      status: 'Tonight',
-      taken: false,
-      position: 'right',
-      color: 'bg-[#2D3E37]',
-      badgeColor: 'bg-[#EFF1EA] text-[#2D3E37]',
-      icon: 'moon'
+  const [medicines, setMedicines] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMedicines();
+  }, []);
+
+  const fetchMedicines = async () => {
+    try {
+      const res = await fetch('/api/medicine');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setMedicines(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch medicines:", error);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const isPastTime = (timeStr) => {
+    if (!timeStr) return false;
+    try {
+      // Parse "02:30 PM" or "9:41 PM"
+      const [timePart, modifier] = timeStr.split(' ');
+      let [hours, minutes] = timePart.split(':');
+      hours = parseInt(hours);
+      minutes = parseInt(minutes);
+      
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+      
+      const now = new Date();
+      const scheduledTime = new Date();
+      scheduledTime.setHours(hours, minutes, 0, 0);
+      
+      return now > scheduledTime;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const getStatus = (med) => {
+    if (med.status === 'taken') return 'Taken';
+    if (isPastTime(med.time)) return 'Missed';
+    return 'Upcoming';
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newMed, setNewMed] = useState({ name: '', time: '', instruction: '' });
 
-  const handleAddMedicine = (e) => {
+  const handleAddMedicine = async (e) => {
     e.preventDefault();
-    const id = medicines.length + 1;
-    const position = id % 2 === 0 ? 'right' : 'left';
-    const med = {
-      ...newMed,
-      id,
-      status: 'Upcoming',
-      taken: false,
-      position,
-      color: 'bg-[#93A89F]',
-      badgeColor: 'bg-[#EFF1EA] text-[#2D3E37]',
-      icon: 'clock'
-    };
-    setMedicines([...medicines, med]);
-    setIsModalOpen(false);
-    setNewMed({ name: '', time: '', instruction: '' });
+    try {
+      const res = await fetch('/api/medicine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMed),
+      });
+      if (res.ok) {
+        fetchMedicines();
+        setIsModalOpen(false);
+        setNewMed({ name: '', time: '', instruction: '' });
+      }
+    } catch (error) {
+      console.error("Failed to add medicine:", error);
+    }
   };
 
-  const toggleTaken = (id) => {
-    setMedicines(medicines.map(m => 
-      m.id === id ? { ...m, taken: !m.taken, status: !m.taken ? 'Taken' : 'Upcoming' } : m
-    ));
+  const toggleTaken = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'taken' ? 'pending' : 'taken';
+    try {
+      const res = await fetch(`/api/medicine/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setMedicines(medicines.map(m => 
+          m._id === id ? { ...m, status: newStatus } : m
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
   };
 
   return (
@@ -94,44 +103,65 @@ const MedicinePage = () => {
         <div className="absolute left-1/2 top-40 bottom-40 w-0.5 bg-[#EFF1EA] transform -translate-x-1/2 hidden md:block" />
 
         <div className="space-y-12 relative">
-          {medicines.map((med, index) => (
-            <div key={med.id} className={`flex flex-col md:flex-row items-center justify-center gap-8 md:gap-0 ${med.position === 'right' ? 'md:flex-row-reverse' : ''}`}>
-              {/* Card */}
-              <div className="w-full md:w-[45%]">
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-[#EFF1EA] transition-all hover:shadow-md group">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`text-sm font-bold ${med.status === 'Missed' ? 'text-[#E57A7A]' : 'text-primary'}`}>{med.time}</span>
-                    <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${med.badgeColor}`}>
-                      {med.status}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-bold text-primary mb-2">{med.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <p className="text-secondary opacity-70 text-sm">{med.instruction}</p>
-                    <button 
-                      onClick={() => toggleTaken(med.id)}
-                      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${med.taken ? 'bg-primary' : 'bg-[#D6E6E1]'}`}
-                    >
-                      <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${med.taken ? 'translate-x-6' : 'translate-x-0'}`} />
-                    </button>
+          {medicines.map((med, index) => {
+            const status = getStatus(med);
+            const isTaken = med.status === 'taken';
+            const missed = status === 'Missed';
+            const position = index % 2 === 0 ? 'left' : 'right';
+            
+            let color = 'bg-[#93A89F]';
+            let badgeColor = 'bg-[#EFF1EA] text-[#2D3E37]';
+            let icon = 'clock';
+
+            if (isTaken) {
+              color = 'bg-[#445E54]';
+              badgeColor = 'bg-[#D6E6E1] text-[#445E54]';
+              icon = 'check';
+            } else if (missed) {
+              color = 'bg-[#E57A7A]';
+              badgeColor = 'bg-[#FDEAE4] text-[#E57A7A]';
+              icon = 'x';
+            }
+
+            return (
+              <div key={med._id} className={`flex flex-col md:flex-row items-center justify-center gap-8 md:gap-0 ${position === 'right' ? 'md:flex-row-reverse' : ''}`}>
+                {/* Card */}
+                <div className="w-full md:w-[45%]">
+                  <div className="bg-white rounded-3xl p-8 shadow-sm border border-[#EFF1EA] transition-all hover:shadow-md group">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className={`text-sm font-bold ${missed ? 'text-[#E57A7A]' : 'text-primary'}`}>{med.time}</span>
+                      <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${badgeColor}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-primary mb-2">{med.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <p className="text-secondary opacity-70 text-sm">{med.instruction}</p>
+                      <button 
+                        onClick={() => !missed && toggleTaken(med._id, med.status)}
+                        disabled={missed}
+                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isTaken ? 'bg-primary' : 'bg-[#D6E6E1]'} ${missed ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${isTaken ? 'translate-x-6' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Icon on Timeline */}
-              <div className="relative z-10 w-12 flex justify-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 ${med.color}`}>
-                  {med.icon === 'check' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                  {med.icon === 'clock' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>}
-                  {med.icon === 'x' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>}
-                  {med.icon === 'moon' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>}
+                {/* Icon on Timeline */}
+                <div className="relative z-10 w-12 flex justify-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 ${color}`}>
+                    {icon === 'check' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                    {icon === 'clock' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>}
+                    {icon === 'x' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>}
+                  </div>
                 </div>
-              </div>
 
-              {/* Spacer for the other side */}
-              <div className="hidden md:block w-[45%]" />
-            </div>
-          ))}
+                {/* Spacer for the other side */}
+                <div className="hidden md:block w-[45%]" />
+              </div>
+            );
+          })}
         </div>
       </main>
 

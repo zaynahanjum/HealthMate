@@ -5,12 +5,12 @@ import { User, Mail, Settings, Bell, Shield, LogOut, Activity, Edit3, ChevronRig
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
-    name: "Loading...",
-    email: "",
-    age: "",
-    height: "", 
-    weight: "",  
-    goal: "Maintain Weight",
+    name: "Alex",
+    email: "alex@example.com",
+    age: "28",
+    height: "175", 
+    weight: "72.0",  
+    goal: "Gain Muscle",
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -195,8 +195,8 @@ export default function ProfilePage() {
                         value={profile.age}
                         onChange={handleInputChange}
                         className="w-full bg-[#FAFAFA] border border-[#EBECE7] text-[#2F3E38] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#455D54] focus:border-[#455D54] focus:bg-white transition-all outline-none"
+                        placeholder="Years"
                       />
-                      <span className="absolute right-4 top-3.5 text-[#8E9F97] font-medium text-sm">yrs</span>
                     </div>
                   </div>
 
@@ -233,8 +233,8 @@ export default function ProfilePage() {
                         value={profile.height}
                         onChange={handleInputChange}
                         className="w-full bg-[#FAFAFA] border border-[#EBECE7] text-[#2F3E38] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#455D54] focus:border-[#455D54] focus:bg-white transition-all outline-none"
+                        placeholder="cm"
                       />
-                      <span className="absolute right-4 top-3.5 text-[#8E9F97] font-medium text-sm">cm</span>
                     </div>
                   </div>
 
@@ -249,8 +249,8 @@ export default function ProfilePage() {
                         value={profile.weight}
                         onChange={handleInputChange}
                         className="w-full bg-[#FAFAFA] border border-[#EBECE7] text-[#2F3E38] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#455D54] focus:border-[#455D54] focus:bg-white transition-all outline-none"
+                        placeholder="kg"
                       />
-                      <span className="absolute right-4 top-3.5 text-[#8E9F97] font-medium text-sm">kg</span>
                     </div>
                   </div>
                 </div>
