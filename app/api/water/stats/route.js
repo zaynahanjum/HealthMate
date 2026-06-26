@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Water from '@/models/Water';
 import User from '@/models/User';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { calculateGoals } from '@/lib/goals';
 
 export async function GET(req) {
   try {
-    await dbConnect();
-    const user = await User.findOneAndUpdate(
-      {},
-      { $setOnInsert: { name: 'Alex', email: 'alex@example.com' } },
-      { upsert: true, new: true }
-    );
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // 1. Calculate Since Last Drink
     const lastLog = await Water.findOne({ userId: user._id }).sort({ date: -1 });
@@ -25,6 +25,9 @@ export async function GET(req) {
         sinceLastDrink = `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
       }
     }
+
+    const goals = calculateGoals(user);
+    const waterGoal = user.waterGoal ?? goals.waterGoal;
 
     // 2. Calculate Weekly Trend
     const last7Days = [];
@@ -48,7 +51,7 @@ export async function GET(req) {
       const dayName = dayStart.toLocaleDateString('en-US', { weekday: 'short' });
       const isToday = new Date().toLocaleDateString() === dayStart.toLocaleDateString();
       
-      return { day: dayName, amount: total, height: `${Math.min((total / 2500) * 100, 100)}%`, active: isToday };
+      return { day: dayName, amount: total, height: `${Math.min((total / waterGoal) * 100, 100)}%`, active: isToday };
     }));
 
     // 3. Calculate Streak

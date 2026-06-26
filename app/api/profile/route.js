@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { calculateGoals } from '@/lib/goals';
+
+function parseNumber(value) {
+  if (value === '' || value == null) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
 
 export async function GET(req) {
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: 'alex@example.com' }) || await User.create({ 
-      name: 'Alex', 
-      email: 'alex@example.com',
-      age: 28,
-      height: 175,
-      weight: 72,
-      goal: 'Gain Muscle'
-    });
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     
     return NextResponse.json(user, { status: 200 });
   } catch (error) {
@@ -22,17 +24,37 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    await dbConnect();
-    const body = await req.json();
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     
-    const updatedUser = await User.findOneAndUpdate(
-      { email: 'alex@example.com' },
-      { ...body }, 
-      { new: true, upsert: true }
-    );
+    const body = await req.json();
+
+    const update = {
+      name: body.name?.trim(),
+      age: parseNumber(body.age),
+      gender: body.gender || null,
+      height: parseNumber(body.height),
+      weight: parseNumber(body.weight),
+      goal: body.goal,
+      activityLevel: body.activityLevel || 'Sedentary',
+    };
+
+    const goals = calculateGoals(update);
+    Object.assign(update, goals);
+
+    const updatedUser = await User.findByIdAndUpdate(user._id, update, {
+      new: true,
+      runValidators: true,
+    });
     
     return NextResponse.json({ message: "Profile updated!", profile: updatedUser }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+    console.error("Error updating profile:", error);
+    return NextResponse.json(
+      { error: "Failed to update profile", details: error.message },
+      { status: 500 }
+    );
   }
 }

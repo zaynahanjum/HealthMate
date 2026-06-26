@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Apple, Utensils, Coffee, Plus, Flame, Target, Activity, Search } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { calculateGoals } from "@/lib/goals";
 
 const SMART_DICTIONARY = {
   'apple': { calories: 95, protein: 0.5 },
@@ -24,6 +26,7 @@ const SMART_DICTIONARY = {
 };
 
 export default function DietTracker() {
+  const { loading: authLoading, token } = useAuth();
   const [dietRecords, setDietRecords] = useState([]);
   const [totals, setTotals] = useState({ calories: 0, protein: 0 });
   const [loading, setLoading] = useState(true);
@@ -34,13 +37,33 @@ export default function DietTracker() {
   const [mealType, setMealType] = useState("Breakfast");
   const [isEstimated, setIsEstimated] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
-  const calorieGoal = 2000;
-  const proteinGoal = 150;
+  const [calorieGoal, setCalorieGoal] = useState(2000);
+  const [proteinGoal, setProteinGoal] = useState(150);
 
   useEffect(() => {
-    fetchDietData();
-  }, []);
+    if (token) {
+      fetchDietData();
+      fetchGoals();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
+
+  const fetchGoals = async () => {
+    try {
+      const res = await fetch("/api/profile", {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const goals = calculateGoals(data);
+        setCalorieGoal(data.calorieGoal ?? goals.calorieGoal);
+        setProteinGoal(data.proteinGoal ?? goals.proteinGoal);
+      }
+    } catch (error) {
+      console.error("Failed to fetch goals", error);
+    }
+  };
 
   const fetchNutritionData = async () => {
     if (!foodName) return;
@@ -75,7 +98,9 @@ export default function DietTracker() {
 
   const fetchDietData = async () => {
     try {
-      const res = await fetch("/api/diet");
+      const res = await fetch("/api/diet", {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (!data.error) {
         setDietRecords(data.logs);
@@ -101,7 +126,10 @@ export default function DietTracker() {
     try {
       const res = await fetch("/api/diet", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -115,6 +143,14 @@ export default function DietTracker() {
       console.error("Failed to save meal", error);
     }
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-[#FDFDF9] flex items-center justify-center text-[#455D54] font-semibold text-xl">
+        Loading Nutrition Tracker...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FDFDF9] font-sans text-[#2F3E38] selection:bg-[#E1EAE5]">

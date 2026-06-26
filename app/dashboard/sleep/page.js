@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { Moon, Sun, Clock, TrendingUp } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SleepTracker() {
+  const { loading: authLoading, token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [averageHours, setAverageHours] = useState(0);
@@ -15,12 +17,18 @@ export default function SleepTracker() {
   const [deepSleep, setDeepSleep] = useState("2h 10m");
 
   useEffect(() => {
-    fetchSleepData();
-  }, []);
+    if (token) {
+      fetchSleepData();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const fetchSleepData = async () => {
     try {
-      const res = await fetch("/api/sleep");
+      const res = await fetch("/api/sleep", {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (!data.error) {
         setRecords(data.records);
@@ -65,7 +73,10 @@ export default function SleepTracker() {
     try {
       const res = await fetch("/api/sleep", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           wentToBed,
           wokeUpAt,
@@ -81,6 +92,14 @@ export default function SleepTracker() {
       console.error("Failed to log sleep session", error);
     }
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-[#FDFDF9] flex items-center justify-center text-[#455D54] font-semibold text-xl">
+        Loading Sleep Tracker...
+      </div>
+    );
+  }
 
   const currentHours = calculateHours(wentToBed, wokeUpAt);
   const h = Math.floor(currentHours);

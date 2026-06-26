@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Water from '@/models/Water';
-
 import User from '@/models/User';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 export async function GET(req) {
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: 'alex@example.com' }) || await User.create({ name: 'Alex', email: 'alex@example.com' });
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -28,10 +30,11 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    await dbConnect();
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { amount, name } = await req.json();
-    
-    const user = await User.findOne({ email: 'alex@example.com' }) || await User.create({ name: 'Alex', email: 'alex@example.com' });
 
     const newLog = await Water.create({
       userId: user._id,

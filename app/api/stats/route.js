@@ -5,11 +5,15 @@ import Water from '@/models/Water';
 import Medicine from '@/models/Medicine';
 import Sleep from '@/models/Sleep';
 import Diet from '@/models/Diet';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { calculateGoals } from '@/lib/goals';
 
 export async function GET(req) {
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: 'alex@example.com' }) || await User.create({ name: 'Alex', email: 'alex@example.com' });
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.log("Stats API hit for user:", user.email);
 
     const now = new Date();
@@ -78,11 +82,18 @@ export async function GET(req) {
       protein = dietLogs.reduce((sum, log) => sum + (log.protein || 0), 0);
     } catch (e) { console.error("Diet stats error:", e); }
 
+    const goals = calculateGoals(user);
+
     return NextResponse.json({
-      water: { current: waterIntake, goal: 2500 },
+      water: { current: waterIntake, goal: user.waterGoal ?? goals.waterGoal },
       medicine: { next: nextMed, count: todayMedsCount },
       sleep: { current: sleepHours, goal: 8 },
-      diet: { calories, protein, goal: 2000 }
+      diet: {
+        calories,
+        protein,
+        goal: user.calorieGoal ?? goals.calorieGoal,
+        proteinGoal: user.proteinGoal ?? goals.proteinGoal,
+      },
     });
   } catch (error) {
     console.error("Global stats API error:", error);

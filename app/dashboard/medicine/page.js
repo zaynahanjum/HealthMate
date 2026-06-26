@@ -1,18 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 const MedicinePage = () => {
+  const { loading: authLoading, token } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMedicines();
-  }, []);
+    if (token) {
+      fetchMedicines();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const fetchMedicines = async () => {
     try {
-      const res = await fetch('/api/medicine');
+      const res = await fetch('/api/medicine', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setMedicines(data);
@@ -60,7 +68,10 @@ const MedicinePage = () => {
     try {
       const res = await fetch('/api/medicine', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newMed),
       });
       if (res.ok) {
@@ -78,7 +89,10 @@ const MedicinePage = () => {
     try {
       const res = await fetch(`/api/medicine/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
@@ -90,6 +104,14 @@ const MedicinePage = () => {
       console.error("Failed to update status:", error);
     }
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FDFDF9]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#455D54]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-outfit text-foreground bg-[#FBFBF2]">

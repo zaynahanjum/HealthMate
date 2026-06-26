@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { calculateGoals } from '@/lib/goals';
 
 const WaterTrackerPage = () => {
+  const { loading: authLoading, token } = useAuth();
   const [currentIntake, setCurrentIntake] = useState(0);
-  const goal = 2500;
+  const [goal, setGoal] = useState(2500);
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState({
     streak: 0,
@@ -18,19 +21,31 @@ const WaterTrackerPage = () => {
   const [customAmount, setCustomAmount] = useState('');
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (token) {
+      fetchData();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [logsRes, statsRes] = await Promise.all([
-        fetch('/api/water'),
-        fetch('/api/water/stats')
+      const [logsRes, statsRes, profileRes] = await Promise.all([
+        fetch('/api/water', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('/api/water/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('/api/profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
       ]);
 
       const logsData = await logsRes.json();
       const statsData = await statsRes.json();
+      const profileData = await profileRes.json();
 
       if (logsData.logs) {
         setLogs(logsData.logs);
@@ -38,6 +53,10 @@ const WaterTrackerPage = () => {
       }
       if (!statsData.error) {
         setStats(statsData);
+      }
+      if (profileRes.ok) {
+        const goals = calculateGoals(profileData);
+        setGoal(profileData.waterGoal ?? goals.waterGoal);
       }
     } catch (error) {
       console.error("Failed to fetch water data:", error);
@@ -51,7 +70,10 @@ const WaterTrackerPage = () => {
     try {
       const res = await fetch('/api/water', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ amount: numAmount, name }),
       });
 
@@ -81,6 +103,14 @@ const WaterTrackerPage = () => {
       setIsModalOpen(false);
     }
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FDFDF9]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#455D54]"></div>
+      </div>
+    );
+  }
 
   const progress = Math.min((currentIntake / goal) * 100, 100).toFixed(0);
 

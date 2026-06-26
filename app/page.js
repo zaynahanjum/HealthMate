@@ -3,11 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Droplet, Pill, Moon, Utensils, PlayCircle, Lightbulb, Flame, ArrowRight, Activity } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const HomePage = () => {
+  const { user, loading: authLoading, token } = useAuth();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [greeting, setGreeting] = useState("Hello");
   const [stats, setStats] = useState(null);
+  const [profileName, setProfileName] = useState("User");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,25 +21,48 @@ const HomePage = () => {
     if (hour < 12) setGreeting("Good Morning");
     else if (hour < 18) setGreeting("Good Afternoon");
     else setGreeting("Good Evening");
-
-    fetchStats();
   }, []);
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch('/api/stats');
-      const data = await res.json();
-      if (!data.error) {
-        setStats(data);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        // 1. Fetch Profile first to verify completeness
+        const profileRes = await fetch('/api/profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          // If profile is incomplete, redirect to profile completion tab
+          if (!profileData.age || !profileData.gender || !profileData.height || !profileData.weight) {
+            router.push('/dashboard/profile?incomplete=true');
+            return;
+          }
+          setProfileName(profileData.name || user?.displayName || "User");
+        }
+
+        // 2. Fetch Stats
+        const statsRes = await fetch('/api/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const statsData = await statsRes.json();
+        if (!statsData.error) {
+          setStats(statsData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch stats", error);
-    } finally {
+    };
+
+    if (token) {
+      fetchUserData();
+    } else if (!authLoading) {
       setLoading(false);
     }
-  };
+  }, [token, authLoading, user, router]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FDFDF9]">
         <Activity className="animate-spin text-[#455D54]" size={48} />
@@ -80,7 +108,7 @@ const HomePage = () => {
             </div>
           </div>
 
-          <h2 className="text-3xl font-extrabold text-[#2F3E38] mb-3">{greeting}, Alex!</h2>
+          <h2 className="text-3xl font-extrabold text-[#2F3E38] mb-3">{greeting}, {profileName}!</h2>
           <p className="text-[#5A7067] font-medium max-w-md mx-auto text-lg">
             {dailyScore > 80 ? "You're crushing it! Keep up the amazing work." : "You're doing great. Just a few more tasks to hit your wellness goal today."}
           </p>

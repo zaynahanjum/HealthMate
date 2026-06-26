@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Sleep from '@/models/Sleep';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 export async function GET(req) {
   try {
-    await dbConnect();
-    const user = await User.findOneAndUpdate(
-      {},
-      { $setOnInsert: { name: 'Alex', email: 'alex@example.com' } },
-      { upsert: true, new: true }
-    );
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const sleepRecords = await Sleep.find({ userId: user._id }).sort({ date: -1 }).limit(10);
     
@@ -51,13 +50,11 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    await dbConnect();
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await req.json();
-    const user = await User.findOneAndUpdate(
-      {},
-      { $setOnInsert: { name: 'Alex', email: 'alex@example.com' } },
-      { upsert: true, new: true }
-    );
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
